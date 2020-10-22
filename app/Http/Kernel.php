@@ -41,7 +41,7 @@ class Kernel extends HttpKernel
 
         'api' => [
             // EnsureFrontendRequestsAreStateful::class, // kalo pake token base ini tdk dipake
-            'throttle:60,1',
+            // 'throttle:60,1',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
     ];

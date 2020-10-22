@@ -19,7 +19,7 @@ class User extends Authenticatable
      * @var array
      */
     protected $fillable = [
-        'name', 'email', 'password',
+        'name', 'email', 'password','username','role_id', 'institution_id', 'status'
     ];
 
     /**
@@ -42,6 +42,39 @@ class User extends Authenticatable
 
     public function role()
     {
-        return $this->belongsTo(Role::class);
+        return $this->belongsTo('App\Role');
+    }
+    public function institution()
+    {
+        return $this->belongsTo('App\Institution');
+    }
+
+    public function teacher()
+    {
+        return $this->hasOne('App\Teacher', 'user_id');
+    }
+    
+
+    // protected static function boot()
+    // {
+    //     parent::boot();
+
+    //     static::deleting(function($user) {
+    //         $relationMethods = ['teacher'];
+
+    //         foreach ($relationMethods as $relationMethod) {
+    //             if ($user->$relationMethod()->count() > 0) {
+    //                 return false;
+    //             }
+    //         }
+    //     });
+    // }
+
+    protected static function boot() 
+    {
+        parent::boot();
+        static::deleting(function($user) {
+            $user->teacher()->delete();
+        });
     }
 }

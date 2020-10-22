@@ -14,32 +14,18 @@ use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\UsersExport;
 use App\Imports\UsersImport;
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
     public function login(Request $request){
-        // $request->validate([
-        //     'email'=>'required|email',
-        //     'password'=>'required'
-        // ]);
-    
-        // $auth = $request->except(['remember_me']);
-        // if (auth()->attempt($auth, $request->remember_me)) {
-    
-        //     return response()->json(['status' => 'success', 'data' => auth()->user()], 200);
-        // }
-    
-        // return response()->json(['status' => 'failed']);
-    
-        // auth()->attempt($request->only('email', 'password'));
-        // return auth()->user()
         $request->validate([
             'email' => 'required|email',
             'password' => 'required',
             'device_name' => 'required'
         ]);
     
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email.$request->device_name)->first();
     
         if (! $user || ! Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
@@ -47,7 +33,7 @@ class AuthController extends Controller
             ]);
         }
     
-        return $user->createToken($request->device_name)->plainTextToken;
+        return $user->createToken("zainul_ishlah".$request->device_name)->plainTextToken;
     }
 
     public function export()
@@ -87,10 +73,13 @@ class AuthController extends Controller
     public function user_list_params(){
 
         $data = User::orderBy(request()->sortby, request()->sortbydesc)
+        ->where('id', '>', 1)
         ->when(request()->q, function($search) {
                 $search = $search->where('name', 'LIKE', '%' . request()->q . '%');
         })->paginate(request()->per_page); 
 
+        $data->load('role:id,name');
+        $data->load('institution:id,name,desc');
         return response()->json([
             'status' => 'success', 
             'data' => $data,
@@ -116,7 +105,7 @@ class AuthController extends Controller
 
     public function user_by($id){
         $user = User::where('id',$id)->first();
-       
+        $user->load('teacher');
             return response()->json([
                 'status' => 'success',
                 'data' =>$user
@@ -146,14 +135,18 @@ class AuthController extends Controller
     public function upload_image(Request $request, User $user){
 
         $old_path = $user->image;
+        Storage::delete('public/'.$old_path);
         if($request->hasFile('image')) {
             $request->validate([
                 'image'=>'required|image|mimes:jpeg,png,jpg'
             ]);
             $path = $request->file('image')->store('images', 'public');
-            $user->image = $path;
+            $user->image = $path; 
 
-            Storage::delete('public/'.$old_path);
+            'App\teacher'::where('user_id', $user->id)->update([
+                'image' => $path
+            ]);
+            
         }
        
         if ($user->save()) {
@@ -173,7 +166,6 @@ class AuthController extends Controller
         Storage::delete('public/'.$user->image);
         $delete = $user->delete();
         if ($delete) {
-            
             return response()->json(['message'=>'sukses'],200);
         } else {
             return response()->json(['message'=>'failed'],500);
@@ -197,11 +189,23 @@ class AuthController extends Controller
         
     }
 
-    // public function logout(){
-    //     auth()->logout();
-    //     return response('');
-    // }
+    public function profile(Request $request)
+    {   
+        $auth_user = User::where('id', Auth::id())->first();
+        $auth_user->load('role:id,name');
+        $auth_user->load('institution:id,name,desc');
+        $auth_user->load('teacher');
+        if ($request->user()) {
+            return response()->json(
+                $auth_user
+            ,200);
+        }
 
+        return response()->json([
+            'message'       => 'Not Loggedin',
+            'status_code'   => 500
+        ],500);
+    }
     public function logout(Request $request){
         $request->user()->tokens()->delete();
         return response()->json('logout', 201);

@@ -4,12 +4,12 @@ namespace App;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Role extends Model
+class Institution extends Model
 {
     protected $guarded = [];
 
     public function user()
     {
-        return $this->hasOne('App\User', 'role_id');
+        return $this->hasOne('App\User', 'institution_id');
     }
 }
